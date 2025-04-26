@@ -2,20 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>N-Body Gravity Simulation </title>
+  <title>🌠 N-Body Gravity Simulation </title>
   <style>
     body {
       background: #111;
       color: #eee;
       font-family: sans-serif;
-      text-align: center;
-      padding: 30px 0;
       margin: 0;
+      padding: 0;
+      text-align: center;
+      overflow-x: hidden;
     }
 
     h2 {
       font-size: 2em;
-      margin-bottom: 20px;
+      margin: 20px 0 10px;
+    }
+
+    #topRight {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    #infoButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2em; /* ⬅️ slightly smaller */
+  font-weight: bold;
+  background: #222;
+  color: #eee;
+  border: 1px solid #555;
+  cursor: pointer;
+  display: flex;          /* ⬅️ added to center perfectly */
+  align-items: center;    /* ⬅️ vertically center */
+  justify-content: center; /* ⬅️ horizontally center */
+}
+
+
+    #infoButton:hover {
+      background: #444;
+    }
+
+    #infoPanel {
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #eee;
+      border: 2px solid #555;
+      padding: 20px;
+      width: 260px;
+      border-radius: 10px;
+      font-size: 1em;
+      text-align: left;
+      display: none;
     }
 
     canvas {
@@ -31,7 +75,7 @@
       justify-content: center;
       align-items: center;
       flex-wrap: wrap;
-      gap: 25px;
+      gap: 20px;
       margin-top: 25px;
     }
 
@@ -69,9 +113,27 @@
 </head>
 
 <body>
+  <div id="topRight">
+    <button id="infoButton" onclick="toggleInfo()" title="Info">ℹ️</button>
+    <div id="infoPanel">
+      <h3>ℹ️ How to Use:</h3>
+      <ul>
+        <li><b>🔄 Auto Mode:</b> Randomly generates bodies.</li>
+        <li><b>🖱️ Manual Mode:</b></li>
+        <ul>
+          <li>Left Click: Place a body</li>
+          <li>Scroll Wheel: Adjust mass</li>
+          <li>Right Click: Delete a body</li>
+        </ul>
+        <li><b>🔁 Reset:</b> Clear or restart system.</li>
+        <li><b>⏸️ Pause:</b> Pause or resume simulation.</li>
+      </ul>
+    </div>
+  </div>
+
   <h2>🌠 N-Body Gravity Simulation</h2>
 
-  <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+  <canvas id="simulationCanvas" width="1200" height="700"></canvas>
 
   <div id="controls">
     <div id="bodyControls">
@@ -202,15 +264,19 @@
 
     function handleReset() {
       if (manualMode) {
-        bodies.length = 0; // clear all manually placed bodies
+        bodies.length = 0;
       } else {
-        startSimulation(); // generate a new system
+        startSimulation();
       }
+    }
+
+    function toggleInfo() {
+      const infoPanel = document.getElementById("infoPanel");
+      infoPanel.style.display = infoPanel.style.display === "block" ? "none" : "block";
     }
 
     canvas.addEventListener("click", (e) => {
       if (!manualMode) return;
-
       const rect = canvas.getBoundingClientRect();
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
@@ -248,7 +314,6 @@
     canvas.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       if (!manualMode) return;
-
       const rect = canvas.getBoundingClientRect();
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
@@ -311,4 +376,5 @@
   </script>
 </body>
 </html>
+
 

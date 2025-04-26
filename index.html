@@ -2,48 +2,104 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>N-Body Simulation (Full View Init)</title>
+  <title>N-Body Simulation (Perfect Mode Switching)</title>
   <style>
     body {
       background: #111;
       color: #eee;
       font-family: sans-serif;
       text-align: center;
+      padding: 30px 0;
+      margin: 0;
     }
+
+    h2 {
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+
     canvas {
-      border: 1px solid #333;
+      border: 2px solid #333;
       background: #000;
-      margin: 10px;
+      display: block;
+      margin: 0 auto;
+      cursor: crosshair;
     }
-    input, button {
-      margin: 5px;
-      padding: 8px 16px;
+
+    #controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 25px;
+      margin-top: 25px;
+    }
+
+    input[type="range"] {
+      width: 250px;
+    }
+
+    button {
+      padding: 14px 20px;
       background: #222;
       color: #eee;
       border: 1px solid #555;
-      border-radius: 5px;
+      border-radius: 6px;
+      font-size: 1.6em;
+      cursor: pointer;
     }
+
     button:hover {
       background: #444;
     }
+
+    label {
+      font-size: 1.2em;
+    }
+
+    #bodyCountValue {
+      display: inline-block;
+      width: 3ch;
+      text-align: right;
+      font-weight: bold;
+      font-size: 1.3em;
+      margin-left: 8px;
+    }
   </style>
 </head>
+
 <body>
-  <h2>🌠 N-Body Gravity Sim — Full Screen Init + Larger Bodies</h2>
-  <canvas id="simulationCanvas" width="800" height="600"></canvas><br/>
-  <label for="bodyCount">Bodies:</label>
-  <input type="number" id="bodyCount" value="5" min="2" max="100" />
-  <button onclick="startSimulation()">🔁 Generate System</button>
-  <button onclick="togglePause()"><span id="pauseBtnText">⏸️ Pause</span></button>
+  <h2>🌠 N-Body Gravity Simulation</h2>
+
+  <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+
+  <div id="controls">
+    <div id="bodyControls">
+      <label for="bodyCount">🌌 Bodies: <span id="bodyCountValue">3</span></label>
+      <input type="range" id="bodyCount" min="1" max="100" value="3" />
+    </div>
+    <button onclick="handleReset()" title="Reset/Clear">🔁</button>
+    <button onclick="togglePause()" title="Pause/Run"><span id="pauseBtnText">⏸️</span></button>
+    <button onclick="togglePlacementMode()" title="Toggle Placement Mode"><span id="modeBtnText">🔄 Auto</span></button>
+  </div>
 
   <script>
     const canvas = document.getElementById("simulationCanvas");
     const ctx = canvas.getContext("2d");
 
-    const G = 6.67430e-6;
+    const G = 6.67430e-7;
     const TIMESTEP = 60 * 30;
-    const SCALE = 1e-8; // Zoom level
+    const SCALE = 1e-8;
     let paused = false;
+    let manualMode = false;
+
+    const minMass = 5e23;
+    const maxMass = 5e25;
+    const baseRadius = 8;
+    const radiusVariation = 8;
+
+    let massControlActive = false;
+    let massControlValue = 0.5;
 
     class Body {
       constructor(name, x, y, vx, vy, mass, radius, color) {
@@ -62,14 +118,11 @@
         let ax = 0, ay = 0;
         for (let other of bodies) {
           if (other === this) continue;
-
           let dx = other.x - this.x;
           let dy = other.y - this.y;
           let centerDist = Math.sqrt(dx * dx + dy * dy);
-
           let visualRadius = (this.radius + other.radius) / SCALE;
           let softenedDist = Math.max(centerDist, visualRadius);
-
           let force = G * other.mass / (softenedDist * softenedDist);
           ax += force * dx / softenedDist;
           ay += force * dy / softenedDist;
@@ -88,18 +141,6 @@
       draw() {
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
-
-        ctx.beginPath();
-        for (let i = 0; i < this.trail.length - 1; i++) {
-          const [x1, y1] = this.trail[i];
-          const [x2, y2] = this.trail[i + 1];
-          ctx.moveTo(cx + x1 * SCALE, cy + y1 * SCALE);
-          ctx.lineTo(cx + x2 * SCALE, cy + y2 * SCALE);
-        }
-        ctx.strokeStyle = this.color + "66";
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
         ctx.beginPath();
         ctx.arc(cx + this.x * SCALE, cy + this.y * SCALE, this.radius, 0, 2 * Math.PI);
         ctx.fillStyle = this.color;
@@ -110,12 +151,11 @@
     const bodies = [];
 
     function startSimulation() {
-      const count = Math.max(2, parseInt(document.getElementById("bodyCount").value));
+      if (manualMode) return;
       bodies.length = 0;
+      const count = parseInt(document.getElementById("bodyCount").value);
 
       const colors = ["white", "yellow", "orange", "deepskyblue", "violet", "lime", "pink", "cyan"];
-      const minMass = 5e23;
-      const maxMass = 5e25;
       const maxVelocity = 2e3;
 
       const realWidth = canvas.width / SCALE;
@@ -129,17 +169,103 @@
         const vx = (Math.random() - 0.5) * maxVelocity;
         const vy = (Math.random() - 0.5) * maxVelocity;
         const mass = minMass + Math.random() * (maxMass - minMass);
-        const radius = 8 + Math.random() * 8; // Larger visible size
+        const radius = baseRadius + ((mass - minMass) / (maxMass - minMass)) * radiusVariation;
         const color = colors[i % colors.length];
-
         bodies.push(new Body("Body" + i, x, y, vx, vy, mass, radius, color));
       }
     }
 
     function togglePause() {
       paused = !paused;
-      document.getElementById("pauseBtnText").textContent = paused ? "▶️ Run" : "⏸️ Pause";
+      document.getElementById("pauseBtnText").textContent = paused ? "▶️" : "⏸️";
     }
+
+    function togglePlacementMode() {
+      manualMode = !manualMode;
+      document.getElementById("modeBtnText").textContent = manualMode ? "🖱️ Manual" : "🔄 Auto";
+
+      const bodyControls = document.getElementById("bodyControls");
+
+      if (manualMode) {
+        bodies.length = 0;
+        bodyControls.style.display = "none";
+        massControlActive = false;
+      } else {
+        bodies.length = 0;
+        bodyControls.style.display = "flex";
+        document.getElementById("bodyCount").value = 3;
+        document.getElementById("bodyCountValue").textContent = "3";
+        massControlActive = false;
+        startSimulation();
+      }
+    }
+
+    function handleReset() {
+      if (manualMode) {
+        bodies.length = 0; // clear all manually placed bodies
+      } else {
+        startSimulation(); // generate a new system
+      }
+    }
+
+    canvas.addEventListener("click", (e) => {
+      if (!manualMode) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const mouseX = (e.clientX - rect.left - cx) / SCALE;
+      const mouseY = (e.clientY - rect.top - cy) / SCALE;
+
+      const colors = ["white", "yellow", "orange", "deepskyblue", "violet", "lime", "pink", "cyan"];
+      const maxVelocity = 2e3;
+      const vx = (Math.random() - 0.5) * maxVelocity;
+      const vy = (Math.random() - 0.5) * maxVelocity;
+
+      let mass;
+      if (massControlActive) {
+        mass = minMass + (maxMass - minMass) * massControlValue;
+      } else {
+        mass = minMass + Math.random() * (maxMass - minMass);
+      }
+
+      const radius = baseRadius + ((mass - minMass) / (maxMass - minMass)) * radiusVariation;
+      const color = colors[bodies.length % colors.length];
+
+      bodies.push(new Body("Body" + bodies.length, mouseX, mouseY, vx, vy, mass, radius, color));
+
+      massControlActive = false;
+    });
+
+    canvas.addEventListener("wheel", (e) => {
+      if (!manualMode) return;
+      e.preventDefault();
+      massControlActive = true;
+      massControlValue -= e.deltaY * 0.001;
+      massControlValue = Math.min(Math.max(massControlValue, 0), 1);
+    });
+
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (!manualMode) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const mouseX = (e.clientX - rect.left - cx) / SCALE;
+      const mouseY = (e.clientY - rect.top - cy) / SCALE;
+
+      for (let i = 0; i < bodies.length; i++) {
+        const body = bodies[i];
+        const dx = body.x - mouseX;
+        const dy = body.y - mouseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < body.radius / SCALE) {
+          bodies.splice(i, 1);
+          break;
+        }
+      }
+    });
 
     function update() {
       for (let body of bodies) body.applyGravity(bodies);
@@ -149,7 +275,22 @@
     function draw() {
       ctx.fillStyle = "rgba(10, 10, 10, 0.3)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      for (let body of bodies) body.draw();
+
+      for (let body of bodies) {
+        body.draw();
+      }
+
+      if (manualMode && massControlActive) {
+        const barHeight = canvas.height * 0.8;
+        const barWidth = 20;
+        const barX = canvas.width - 40;
+        const barY = (canvas.height - barHeight) / 2;
+        ctx.strokeStyle = "white";
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        ctx.fillStyle = "blue";
+        ctx.fillRect(barX, barY + (1 - massControlValue) * barHeight, barWidth, massControlValue * barHeight);
+      }
     }
 
     function loop() {
@@ -158,8 +299,16 @@
       requestAnimationFrame(loop);
     }
 
+    const bodyCountSlider = document.getElementById("bodyCount");
+    const bodyCountValue = document.getElementById("bodyCountValue");
+
+    bodyCountSlider.addEventListener("input", () => {
+      bodyCountValue.textContent = bodyCountSlider.value;
+    });
+
     startSimulation();
     loop();
   </script>
 </body>
 </html>
+
